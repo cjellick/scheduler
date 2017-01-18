@@ -4,10 +4,10 @@ func filter(hosts map[string]*host, resourceRequests []ResourceRequest) []*host 
 	filtered := []*host{}
 	aggregateResReqs := map[string]ResourceRequest{}
 	for _, rr := range resourceRequests {
-		if request, ok := rr.(ComputeResourceRequest); ok {
-			aggResReq, ok := aggregateResReqs[request.Resource].(ComputeResourceRequest)
+		if request, ok := rr.(AmountBasedResourceRequest); ok {
+			aggResReq, ok := aggregateResReqs[request.Resource].(AmountBasedResourceRequest)
 			if !ok {
-				aggResReq = ComputeResourceRequest{
+				aggResReq = AmountBasedResourceRequest{
 					Resource: rr.GetResourceType(),
 					Amount:   0,
 				}
@@ -21,7 +21,7 @@ func filter(hosts map[string]*host, resourceRequests []ResourceRequest) []*host 
 Outer:
 	for _, h := range hosts {
 		for _, rr := range aggregateResReqs {
-			if rq, ok := rr.(ComputeResourceRequest); ok {
+			if rq, ok := rr.(AmountBasedResourceRequest); ok {
 				pool, ok := h.pools[rr.GetResourceType()].(*ComputeResourcePool)
 				if !ok || (pool.Total-pool.Used) < rq.Amount {
 					continue Outer
@@ -49,7 +49,7 @@ func (s hostSorter) Swap(i, j int) {
 
 func (s hostSorter) Less(i, j int) bool {
 	for _, rr := range s.resourceRequests {
-		if rq, ok := rr.(ComputeResourceRequest); ok {
+		if rq, ok := rr.(AmountBasedResourceRequest); ok {
 			iPool, iOK := s.hosts[i].pools[rq.Resource].(*ComputeResourcePool)
 			jPool, jOK := s.hosts[j].pools[rq.Resource].(*ComputeResourcePool)
 

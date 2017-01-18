@@ -94,7 +94,6 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 
 		// port pool update logic
 		portPool := w.getPortPoolFromHost(h)
-		logrus.Infof("Updating PortPool from metadata. Host-UUID: %v, Port Map: %v", h.UUID, portPool.(*scheduler.PortResourcePool).PortBindingMap)
 		// Note: UpdateResourcePool for ports is effectively a no-op. It just checks if the pool has been created.
 		// This means that we cannot currently back-populate "native" containers into the scheduler.
 		poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, portPool)

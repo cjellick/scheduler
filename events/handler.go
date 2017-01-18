@@ -78,7 +78,7 @@ func publish(event *revents.Event, data map[string]interface{}, apiClient *clien
 }
 
 func getEventData(event *revents.Event) (*schedulerData, error) {
-	logrus.Infof("Received event: Name: %s, Event Id: %s, Resource : %#v", event.Name, event.ID, event)
+	logrus.Infof("Received event: Name: %s, Event Id: %s, ResourceId : %v", event.Name, event.ID, event.ResourceID)
 	return decodeEvent(event, "schedulerRequest")
 }
 
@@ -96,7 +96,7 @@ func decodeEvent(event *revents.Event, key string) (*schedulerData, error) {
 				}
 				switch baseRequests.Type {
 				case computePool:
-					computeRequest := scheduler.ComputeResourceRequest{}
+					computeRequest := scheduler.AmountBasedResourceRequest{}
 					err := mapstructure.Decode(request, &computeRequest)
 					if err != nil {
 						return nil, err

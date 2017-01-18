@@ -31,6 +31,27 @@ func (p *PortResourcePool) ReservePort(port int64) (string, bool) {
 	return "", false
 }
 
+func (p *PortResourcePool) IsIPQualifiedForRequests(ip string, specs []PortSpec) bool {
+	qualified := true
+	m := p.PortBindingMap[ip]
+	for _, spec := range specs {
+		// iterate through all the requests, then check if port is used
+		// if spec has an ip, then only check the port if ip is the same
+		if spec.IPAddress != "" {
+			if spec.IPAddress == ip && m[spec.PublicPort] {
+				qualified = false
+				break
+			}
+		} else {
+			if m[spec.PublicPort] {
+				qualified = false
+				break
+			}
+		}
+	}
+	return qualified
+}
+
 // ReserveIPPort reserve an ip and port from a port pool
 func (p *PortResourcePool) ReserveIPPort(ip string, port int64) error {
 	if _, ok := p.PortBindingMap[ip]; !ok {
@@ -72,10 +93,11 @@ func (p *PortResourcePool) ReleasePort(ip string, port int64) {
 }
 
 func (p *PortResourcePool) ArePortsAvailable(ports []PortSpec) bool {
+L:
 	for _, portMap := range p.PortBindingMap {
 		for _, port := range ports {
 			if portMap[port.PublicPort] {
-				break
+				continue L
 			}
 		}
 		return true
@@ -135,6 +157,7 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 	i := 0
 	var err error
 	data := map[string]interface{}{}
+	portsRollback := map[string]interface{}{}
 	reserveLog := bytes.NewBufferString(fmt.Sprintf("New pool amount on host %v:", hostID))
 L:
 	for _, rr := range resourceRequests {
@@ -147,7 +170,7 @@ L:
 		switch PoolType {
 		case computePool:
 			pool := p.(*ComputeResourcePool)
-			request := rr.(ComputeResourceRequest)
+			request := rr.(AmountBasedResourceRequest)
 			if !force && pool.Used+request.Amount > pool.Total {
 				err = OverReserveError{hostID: hostID, resourceRequest: rr}
 				break L
@@ -160,8 +183,10 @@ L:
 			pool := p.(*PortResourcePool)
 			request := rr.(PortBindingResourceRequest)
 			result, er := PortReserve(pool, request)
+			logrus.Infof("Host-UUID %v, PortPool Map %v", hostID, pool.PortBindingMap)
 			if er != nil {
 				err = er
+				portsRollback = result
 				break L
 			} else {
 				data[request.Resource] = result
@@ -172,6 +197,7 @@ L:
 	if err == nil {
 		logrus.Info(reserveLog.String())
 	} else {
+		logrus.Error(err)
 		// rollback
 		// TODO We may need to add rollback logic for ports out here instead of in port.go
 		for _, rr := range resourceRequests[:i] {
@@ -183,8 +209,19 @@ L:
 			switch resourcePoolType {
 			case computePool:
 				pool := p.(*ComputeResourcePool)
-				request := rr.(ComputeResourceRequest)
+				request := rr.(AmountBasedResourceRequest)
 				pool.Used = pool.Used - request.Amount
+			}
+		}
+		// roll back ports
+		if pool, ok := h.pools["portReservation"].(*PortResourcePool); ok {
+			if portReservation, ok := portsRollback[allocatedIPs].([]map[string]interface{}); ok {
+				for _, portReserved := range portReservation {
+					ip := portReserved[allocatedIP].(string)
+					port := portReserved[publicPort].(int64)
+					pool.ReleasePort(ip, port)
+					logrus.Infof("Roll back ip [%v] and port [%v]", ip, port)
+				}
 			}
 		}
 		return nil, err
@@ -215,7 +252,7 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 		switch PoolType {
 		case computePool:
 			pool := p.(*ComputeResourcePool)
-			request := rr.(ComputeResourceRequest)
+			request := rr.(AmountBasedResourceRequest)
 			if pool.Used-request.Amount < 0 {
 				logrus.Infof("Decreasing used for %v.%v by %v would result in negative usage. Setting to 0.", hostID, request.Resource, request.Amount)
 				pool.Used = 0

@@ -34,7 +34,7 @@ func (s *MetadataTestSuite) TestWatchMetadata(c *check.C) {
 	go WatchMetadata(mock, sched)
 
 	// The mock metadata client's OnChange hasn't fired yet, so there should be no valid candidates
-	actual, err := sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.ComputeResourceRequest{Amount: 1, Resource: "memoryReservation"}})
+	actual, err := sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{})
 
@@ -42,17 +42,17 @@ func (s *MetadataTestSuite) TestWatchMetadata(c *check.C) {
 	// host-a has 1 total and 1 used memory and host-b has 2 total and none used
 	change <- "1"
 	<-changeDone
-	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.ComputeResourceRequest{Amount: 1, Resource: "memoryReservation"}})
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{"host-b"})
 
-	_, err = sched.ReserveResources("host-b", false, []scheduler.ResourceRequest{scheduler.ComputeResourceRequest{Amount: 2, Resource: "memoryReservation"}})
+	_, err = sched.ReserveResources("host-b", false, []scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 2, Resource: "memoryReservation"}})
 	c.Assert(err, check.IsNil)
 
 	// Release the initially used memory from host-a
-	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{scheduler.ComputeResourceRequest{Amount: 1, Resource: "memoryReservation"}})
+	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
 
-	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.ComputeResourceRequest{Amount: 1, Resource: "memoryReservation"}})
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{"host-a"})
 
@@ -61,7 +61,7 @@ func (s *MetadataTestSuite) TestWatchMetadata(c *check.C) {
 	change <- "2"
 	<-changeDone
 
-	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.ComputeResourceRequest{Amount: 1, Resource: "memoryReservation"}})
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{})
 }
@@ -131,7 +131,7 @@ func (s *MetadataTestSuite) TestPanicLogic(c *check.C) {
 
 var defaultHosts = []metadata.Host{{UUID: "host-a", Memory: 1}, {UUID: "host-b", Memory: 2}}
 
-var portUsedHosts = []metadata.Host{{UUID: "host-a", Labels: map[string]string{"io.rancher.host.ip_set": "192.168.1.1,192.168.1.2"}}, {UUID: "host-b", Labels: map[string]string{"io.rancher.host.ip_set": "192.168.1.3,192.168.1.4"}}}
+var portUsedHosts = []metadata.Host{{UUID: "host-a", Labels: map[string]string{"io.rancher.scheduler.ips": "192.168.1.1,192.168.1.2"}}, {UUID: "host-b", Labels: map[string]string{"io.rancher.scheduler.ips": "192.168.1.3,192.168.1.4"}}}
 
 type mockMDClient struct {
 	metadata.Client

@@ -19,13 +19,12 @@ func (b BaseResourceRequest) GetResourceType() string {
 	return b.Resource
 }
 
-// TODO Rename to AmountBasedResourceRequest
-type ComputeResourceRequest struct {
+type AmountBasedResourceRequest struct {
 	Resource string
 	Amount   int64
 }
 
-func (c ComputeResourceRequest) GetResourceType() string {
+func (c AmountBasedResourceRequest) GetResourceType() string {
 	return c.Resource
 }
 
